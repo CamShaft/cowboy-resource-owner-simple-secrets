@@ -25,11 +25,14 @@ handle(Token, Env) ->
 decrypt(Token, Secret) when is_binary(Secret) ->
   decrypt(Token, simple_secrets:init(Secret));
 decrypt(Token, Secret) ->
-  case simple_secrets:unpack(Token, Secret) of
+  try simple_secrets:unpack(Token, Secret) of
     {error, _} = Error ->
       Error;
     {Body} ->
       Body
+  catch
+    _:_ ->
+      undefined
   end.
 
 transform(Body, Enum) ->
