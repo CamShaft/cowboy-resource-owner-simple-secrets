@@ -3,7 +3,7 @@
 -export([handle/2]).
 
 handle(Token, Env) ->
-  case key(ss_token_secret, Env) of
+  case fast_key:get(ss_token_secret, Env) of
     undefined ->
       {error, secret_not_found};
     Secret ->
@@ -11,7 +11,7 @@ handle(Token, Env) ->
         undefined ->
           {error, invalid_token};
         Body ->
-          Enum = key(ss_scopes_enum, Env, []),
+          Enum = fast_key:get(ss_scopes_enum, Env, []),
           Transformed = transform(Body, Enum),
           case verify(Transformed) of
             true ->
@@ -38,24 +38,13 @@ decrypt(Token, Secret) ->
 transform(Body, Enum) ->
   % {ClientID, OwnerID, Scopes, Expiration, Other}
   {
-    key(<<"c">>, Body),
-    key(<<"u">>, Body),
-    bitfield:unpack(key(<<"s">>, Body, <<>>), Enum),
-    key(<<"e">>, Body),
+    fast_key:get(<<"c">>, Body),
+    fast_key:get(<<"u">>, Body),
+    bitfield:unpack(fast_key:get(<<"s">>, Body, <<>>), Enum),
+    fast_key:get(<<"e">>, Body),
     undefined
   }.
 
 verify({_ClientID, _OwnerID, _Scopes, _Expiration, _Other}) ->
   % TODO check expiration
   true.
-
-key(Key, List) ->
-  key(Key, List, undefined).
-key(Key, List, Default) ->
-  {_, Value} = lists:keyfind(Key, 1, List),
-  case Value of
-    undefined ->
-      Default;
-    Value ->
-      Value
-  end.
