@@ -28,7 +28,7 @@ decrypt(Token, Secret) ->
   case simple_secrets:unpack(Token, Secret) of
     {error, _} = Error ->
       Error;
-    Body ->
+    {Body} ->
       Body
   end.
 
