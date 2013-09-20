@@ -1,31 +1,33 @@
 -module(cowboy_resource_owner_simple_secrets).
 
 -export([handle/2]).
+-export([init/2]).
 
 handle(Token, Env) ->
-  case fast_key:get(ss_token_secret, Env) of
-    undefined ->
-      {error, secret_not_found};
-    Secret ->
-      case decrypt(Token, Secret) of
-        undefined ->
-          {error, invalid_token};
-        Body ->
-          Enum = fast_key:get(ss_scopes_enum, Env, []),
-          Transformed = transform(Body, Enum),
-          case verify(Transformed) of
-            true ->
-              Transformed;
-            _ ->
-              {error, expired}
-          end
-      end
+  Fun = init(fast_key:get(ss_token_secret, Env), fast_key:get(ss_scopes_enum, Env)),
+  Fun(Token, Env).
+
+init(Secret, Enum) when is_binary(Secret), is_list(Enum) ->
+  Signer = simple_secrets:init(Secret),
+  init(Signer, Enum);
+init(Signer, Enum) when is_list(Enum) ->
+  fun (Token, _Env) ->
+    case decrypt(Token, Signer) of
+      undefined ->
+        {error, invalid_token};
+      Body ->
+        Transformed = transform(Body, Enum),
+        case verify(Transformed) of
+          true ->
+            Transformed;
+          _ ->
+            {error, expired}
+        end
+    end
   end.
 
-decrypt(Token, Secret) when is_binary(Secret) ->
-  decrypt(Token, simple_secrets:init(Secret));
-decrypt(Token, Secret) ->
-  try simple_secrets:unpack(Token, Secret) of
+decrypt(Token, Signer) ->
+  try simple_secrets:unpack(Token, Signer) of
     {error, _} = Error ->
       Error;
     {Body} ->
